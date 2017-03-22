@@ -1,16 +1,16 @@
 package indexer.tzy.com.indexer.index;
 
 import android.database.DataSetObserver;
-import android.util.SparseIntArray;
 import android.widget.SectionIndexer;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 
 /**
- * 类描述：同时对部门和成员排序并能得到每个元素对应section的索引器
+ * 类描述：section的索引器
  * 该类使用二分查找法和索引缓存，相比之前使用的 顺序查找法， 效率高很多;
- * 数据源最好使用{@link java.util.Comparator }定义排序规则。
+ * <p>
  * {@link RosterSectionIndexer#getPositionForSection(int)}可直接判断是否可以在Item中显示section
  * <p/>
  * Created by tzy on 2016/11/12.
@@ -29,7 +29,7 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
      * This contains a cache of the computed indices so far. It will get reset whenever
      * the dataset changes or the cursor changes.
      */
-    private SparseIntArray mAlphaMap;
+    private Map<Object,Integer> mAlphaMap;
 
     /**
      * Use a collator to compare strings in a localized manner.
@@ -39,27 +39,20 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
     /**
      * The section array converted from the alphabet string.
      */
-    private Object[] mAlphabetArray;
+    private Object[] mSectionArray;
 
-    /**
-     * Use a collator to compare strings in a localized manner.
-     */
-    private java.text.Collator mCollator;
+
 
     SectionCompartor<T> compartor;
 
-    String sectionOfDepart = "";//
-
-    public RosterSectionIndexer(String sectionOfDepart, Object[] sectionsArrays, List<T> datas) {
-        this.sectionOfDepart = sectionOfDepart;
+    public RosterSectionIndexer( Object[] sectionsArrays, List<T> datas) {
         mAlphabetLength = sectionsArrays.length;
-        mAlphabetArray = sectionsArrays;
-        mAlphaMap = new SparseIntArray(mAlphabetLength);
+        mSectionArray = sectionsArrays;
+        mAlphaMap = new HashMap<>(mAlphabetLength);
         //comparator = new ComparatorManager.RosterComparator();
         // Get a Collator for the current locale for string comparisons.
-        mCollator = java.text.Collator.getInstance(Locale.ENGLISH);
-        mCollator.setStrength(java.text.Collator.PRIMARY);
-        getMemberSectionIndex();
+
+       // getMemberSectionIndex();
         this.datas = datas;
     }
 
@@ -69,7 +62,7 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
      * @return the section array
      */
     public Object[] getSections() {
-        return mAlphabetArray;
+        return mSectionArray;
     }
 
     public void setDatas(List<T> datas) {
@@ -80,16 +73,20 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
     /**
      * Default implementation compares the first character of word with letter.
      */
-    protected int compare(T item, String section) {
+    protected int compare(T item, Object section) {
           if(compartor != null){
-              return compare(item, section);
+              return compartor.compare(item, section);
           }
         return 0;
     }
 
+    /**
+     * 获取 一个 section 在列表中的位置，这里采用用二分查找
+     * @param sectionIndex 该section在索引列表中的索引值
+     * */
     @Override
     public int getPositionForSection(int sectionIndex) {
-        final SparseIntArray alphaMap = mAlphaMap;
+        final Map<Object,Integer> alphaMap = mAlphaMap;
 
         if (datas == null ) {
             return 0;
@@ -109,10 +106,12 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
         int end = count;
         int pos;
 
-        String targetLetter = mAlphabetArray[sectionIndex].toString();
-        int key = targetLetter.charAt(0);
-        // Check map
-        if (Integer.MIN_VALUE != (pos = alphaMap.get(key, Integer.MIN_VALUE))) {
+        Object section = mSectionArray[sectionIndex];
+        // Check map，之前有做过缓存，这里就直接返回结果
+        Integer tempPos = alphaMap.get(section);
+        pos = tempPos == null ? Integer.MIN_VALUE : tempPos;
+
+        if (Integer.MIN_VALUE != pos ) {
             // Is it approximate? Using negative value to indicate that it's
             // an approximation and positive value when it is the accurate
             // position.
@@ -125,11 +124,13 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
             }
         }
 
-        // Do we have the position of the previous section?
+        // 检查下是否有前一个 section 的位置缓存，如果有，就可以缩小查找范围
         if (sectionIndex > 0) {
-            int prevLetter =
-                    mAlphabetArray[sectionIndex - 1].toString().charAt(0);
-            int prevLetterPos = alphaMap.get(prevLetter, Integer.MIN_VALUE);
+            Object prevSection =
+                    mSectionArray[sectionIndex - 1];
+            Integer tempPrePos = alphaMap.get(prevSection);
+            int prevLetterPos = tempPrePos == null ? Integer.MIN_VALUE : tempPrePos;
+
             if (prevLetterPos != Integer.MIN_VALUE) {
                 start = Math.abs(prevLetterPos);
             }
@@ -150,7 +151,7 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
                     continue;
                 }
             }
-            int diff = compare(item, targetLetter);
+            int diff = compare(item, section);
             if (diff != 0) {
 
                 if (diff < 0) {
@@ -174,7 +175,7 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
             }
             pos = (start + end) / 2;
         }
-        alphaMap.put(key, pos);
+        alphaMap.put(section, pos);
         return pos;
     }
 
@@ -184,7 +185,7 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
         // Linear search, as there are only a few items in the section index
         // Could speed this up later if it actually gets used.
         for (int i = 0; i < mAlphabetLength; i++) {
-            String section = mAlphabetArray[i].toString();
+            String section = mSectionArray[i].toString();
             if (compare(item, section) == 0) {
                 return i;
             }
@@ -192,118 +193,36 @@ public class RosterSectionIndexer<T> extends DataSetObserver implements SectionI
         return 0; // Don't recognize the letter - falls under zero'th section
     }
 
-    /*
-    * @hide
-    */
+
     @Override
     public void onChanged() {
         super.onChanged();
         mAlphaMap.clear();
     }
 
-    /*
-     * @hide
-     */
+
     @Override
     public void onInvalidated() {
         super.onInvalidated();
         mAlphaMap.clear();
     }
 
-    /**
-     * 通过section的在{@link RosterSectionIndexer#mAlphabetArray}的索引值找到要显示在列表的section字段
-     * @param
-     * @return
-     */
-   /* public String getSectionName(int sectionIndex){
-        // Check bounds
-        if (sectionIndex <= 0) {
-            sectionIndex = 0;
-        }
-        if (sectionIndex >= mAlphabetLength) {
-            sectionIndex = mAlphabetLength - 1;
-        }
-        String section = mAlphabetArray[sectionIndex].toString();
-
-        if(section.equals(sectionOfDepart)){
-            return titleSectionDepart;
-        }else{
-            return section;
-        }
-    }*/
-
     public int getSectionIndex(String section){
         int index = 0;
         for(;index < mAlphabetLength;++index){
-            if(section.equals(mAlphabetArray[index].toString())){
+            if(section.equalsIgnoreCase(mSectionArray[index].toString())){
                 return index;
             }
         }
         return mAlphabetLength - 1;
     }
 
-    protected int memberSectionIndex = -1;
 
-    public int getMemberSectionIndex(){
-        if(memberSectionIndex >= 0){
-            return memberSectionIndex;
-        }
-        int index = 0;
-        for(;index < mAlphabetLength;++index){
-            if(!sectionOfDepart.equals(mAlphabetArray[index].toString())){
-                return memberSectionIndex = index;
-            }
-        }
-        return memberSectionIndex = 0;
+    public SectionCompartor<T> getCompartor() {
+        return compartor;
     }
 
-    /*public static Object[] getSections(List<T> datas,String sectionDepart){
-        if(datas == null ){
-            return null;
-        }
-
-        boolean hasDepart = false;
-        boolean hasUnKnow = false;
-
-        Set<String> sectionSet = new TreeSet<>(); //26个字母 + “部” + “#”
-        for(int i=0, len=datas.size(); i<len; i++){
-            T item = datas.get(i);
-            if(item == null){
-                continue;
-            }
-
-            if(item.getType() == RosterItem.TYPE_GROUP){
-                hasDepart = true;
-                continue;
-            }
-
-
-            String nameAcronym = item.getName();
-            if(TextUtils.isEmpty(nameAcronym)){
-                hasUnKnow = true;
-            }else{
-                char firstChar = nameAcronym.charAt(0);
-                //除了字母外，其他的都匹配'#'
-                if(Character.isLetter(firstChar)){
-                    sectionSet.add(nameAcronym.substring(0,1).toUpperCase());
-                }else{
-                    hasUnKnow = true;
-                }
-            }
-        }
-
-        List<String> objects = new LinkedList<>(sectionSet);
-
-
-        if(hasUnKnow){
-            objects.add(0,"#");
-        }
-
-        if(hasDepart){
-            objects.add(0,sectionDepart);
-        }
-
-
-        return objects.toArray();
-    }*/
+    public void setCompartor(SectionCompartor<T> compartor) {
+        this.compartor = compartor;
+    }
 }

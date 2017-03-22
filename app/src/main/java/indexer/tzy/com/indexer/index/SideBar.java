@@ -37,7 +37,7 @@ public class SideBar extends View {
     private int mItemHeight;
     private Paint mPaint;
     private float mBaseLineHeight;
-    private boolean isAddHead = true;
+    private boolean isAddHead = false;
 
     public SideBar(Context context) {
         super(context);

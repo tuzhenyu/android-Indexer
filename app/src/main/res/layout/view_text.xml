@@ -13,7 +13,6 @@
         android:minHeight="80dp"
         android:minWidth="80dp"
         android:padding="5dp"
-        android:textAppearance="@android:attr/textAppearanceMedium"
         android:textSize="50sp" />
 
 </LinearLayout>

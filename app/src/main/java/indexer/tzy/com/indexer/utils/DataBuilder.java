@@ -1,8 +1,14 @@
 package indexer.tzy.com.indexer.utils;
 
+import android.text.TextUtils;
+
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
 
 import indexer.tzy.com.indexer.bean.Department;
 import indexer.tzy.com.indexer.bean.Staff;
@@ -13,17 +19,15 @@ import indexer.tzy.com.indexer.bean.Staff;
 
 public class DataBuilder {
 
+    //为了简化情景，假设部门名称的首字母都不相同
     public static final String[] DNames = {"dpaprt1",
-            "depart2",
-            "depart3",
-            "ssDpart",
-            "ScDepart",
             "MathDepart",
             "TestDepart",
             "HRDepart",
             "MarketDepart",
             "SaleDepart",
-            "devDeprt"
+            "devDeprt",
+            "AdvanceDepart"
     };
 
     public static final String[] StaffNames = {"kobe",
@@ -32,6 +36,9 @@ public class DataBuilder {
             "jack",
             "mike",
             "lily",
+            "blue",
+            "blacket",
+            "francle",
             "westbrook",
             "t-mac",
             "yaoMing",
@@ -48,10 +55,12 @@ public class DataBuilder {
             "stepthen",
             "sharkp",
             "yohu",
-            "candy"
+            "candy",
+            "zook",
+            "geogle"
     };
 
-   public List<Department> createDeaprtments(){
+   public static List<Department> createDeaprtments(){
 
         List<Department> departments = new ArrayList<>(DNames.length);
         Long did = 100L;
@@ -61,7 +70,7 @@ public class DataBuilder {
         return departments;
     }
 
-    public List<Staff> createStaffs(int size){
+    public static List<Staff> createStaffs(int size){
         if(size <= 0 ){
             size = 15;
         }
@@ -83,5 +92,70 @@ public class DataBuilder {
         return staffs;
     }
 
+    /**
+     * 对员工按照姓名进行排序，并生成 索引列表
+     * */
+    public static Object[] sortByName(List<Staff> datas, Comparator<Staff> comparator){
+
+        if(datas == null ){
+            return null;
+        }
+
+        Collections.sort(datas,comparator);
+
+        Set<String> sectionSet = new TreeSet<>(); //26个字母 + “#”
+        for(int i=0, len = datas.size(); i<len; i++){
+            Staff item = datas.get(i);
+            if(item == null){
+                continue;
+            }
+
+            String nameAcronym = item.getName();
+            if(!TextUtils.isEmpty(nameAcronym)){
+                char firstChar = nameAcronym.charAt(0);
+                if(Character.isLetter(firstChar)){
+                    sectionSet.add(nameAcronym.substring(0,1).toUpperCase());
+                }
+            }
+        }
+
+        List<String> objects = new ArrayList<>(sectionSet);
+        return objects.toArray();
+    }
+
+
+
+    /**
+     * 对员工按照部门进行排序，并生成 索引列表
+     * */
+    public static Object[] sortByDepart(List<Staff> datas, Comparator<Staff> comparator){
+
+        if(datas == null ){
+            return null;
+        }
+
+        Collections.sort(datas,comparator);
+
+
+        Set<String> sectionSet = new TreeSet<>(); //26个字母 + “#”
+        for(int i=0, len = datas.size(); i<len; i++){
+            Staff item = datas.get(i);
+            if(item == null){
+                continue;
+            }
+
+            String dNmae = item.getDepartment().getdName();
+            if(!TextUtils.isEmpty(dNmae)){
+                char firstChar = dNmae.charAt(0);
+                //除了字母外，其他的都匹配'#'
+                if(Character.isLetter(firstChar)){
+                    sectionSet.add(dNmae.substring(0,1).toUpperCase());
+                }
+            }
+        }
+
+        List<String> objects = new ArrayList<>(sectionSet);
+        return objects.toArray();
+    }
 
 }
